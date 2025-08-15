@@ -100,11 +100,12 @@ class RhymeAnalyzer {
   }
   isLineEnd(i, words){
     const line=words[i].line;
+    // Check if there are any more words on the same line after this one
     for (let j=i+1;j<words.length;j++){
-      if (words[j].line!==line) return true;
-      return false;
+      if (words[j].line===line) return false; // Found another word on same line
+      if (words[j].line>line) break; // Moved to next line, no more words on current line
     }
-    return true;
+    return true; // This is the last word on the line
   }
   tokenize(text){
     const lines=text.split(/\n/), words=[];
@@ -221,10 +222,23 @@ class RhymeResultsView extends ItemView {
     btn.addEventListener('click', ()=>this.plugin.runAnalysis());
     const copy = h.createEl('button', { text: 'Copy JSON', cls:'rhyme-btn-secondary' });
     copy.addEventListener('click', ()=>{
-      if (!this.lastResult) return;
-      const text = JSON.stringify(this.plugin.decorateResult(this.lastResult), null, 2);
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
-      new Notice('Rhyme Analyzer: JSON copied');
+      try {
+        if (!this.lastResult) return;
+        const text = JSON.stringify(this.plugin.decorateResult(this.lastResult), null, 2);
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+            new Notice('Rhyme Analyzer: JSON copied');
+          }).catch(err => {
+            console.error('Clipboard error:', err);
+            new Notice('Rhyme Analyzer: Failed to copy to clipboard');
+          });
+        } else {
+          new Notice('Rhyme Analyzer: Clipboard not available');
+        }
+      } catch (error) {
+        console.error('Copy error:', error);
+        new Notice('Rhyme Analyzer: Copy failed - ' + error.message);
+      }
     });
     const legend = h.createDiv({ cls:'rhyme-legend', text:'Solid chips = Cluster • Faded = Vowel echo • ×N = Tail • ticks = Ending match • Left A/B/C = Rhyme map' });
   }
@@ -331,13 +345,18 @@ class RhymeAnalyzerPlugin extends Plugin {
   }
 
   runAnalysis(forceText){
-    const ed = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
-    const text = forceText !== undefined ? forceText : (ed ? (ed.getSelection() || ed.getValue()) : '');
-    if (!text || !text.trim()){ new Notice('Rhyme Analyzer: nothing to analyze'); return; }
-    const result = this.analyzer.analyze(text);
-    const view = this.resultsView;
-    if (view){ view.renderResult(result); }
-    else new Notice('Rhyme Analyzer: view not open');
+    try {
+      const ed = this.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+      const text = forceText !== undefined ? forceText : (ed ? (ed.getSelection() || ed.getValue()) : '');
+      if (!text || !text.trim()){ new Notice('Rhyme Analyzer: nothing to analyze'); return; }
+      const result = this.analyzer.analyze(text);
+      const view = this.resultsView;
+      if (view){ view.renderResult(result); }
+      else new Notice('Rhyme Analyzer: view not open');
+    } catch (error) {
+      console.error('Rhyme Analyzer error:', error);
+      new Notice('Rhyme Analyzer: Analysis failed - ' + error.message);
+    }
   }
 
   async saveSettings(){ await this.saveData(this.settings); }
