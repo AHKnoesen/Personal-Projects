@@ -8,9 +8,14 @@ def basic_operation(operator, x, y):
     elif operator == '*':
         return x * y
     elif operator == '/':
+        if y == 0:
+            raise ValueError("Cannot divide by zero")
         return x / y
     elif operator == '**':
-        return x ** y
+        try:
+            return x ** y
+        except OverflowError:
+            raise ValueError("Result too large to compute")
 
 def scientific_operation(operator, x):
     if operator == 'sin':
@@ -20,8 +25,12 @@ def scientific_operation(operator, x):
     elif operator == 'tan':
         return math.tan(x)
     elif operator == 'log':
+        if x <= 0:
+            raise ValueError("Logarithm undefined for non-positive numbers")
         return math.log10(x)
     elif operator == 'ln':
+        if x <= 0:
+            raise ValueError("Natural logarithm undefined for non-positive numbers")
         return math.log(x)
 
 
@@ -35,17 +44,39 @@ while True:
     if user_input == 'q':
         break
 
-    
-    operator, *operands = user_input.split()
+    try:
+        parts = user_input.split()
+        if len(parts) == 0:
+            print('Please enter an expression')
+            continue
+            
+        operator = parts[0]
+        operands_str = parts[1:]
+        
+        # Convert operands to float with error handling
+        try:
+            operands = [float(x) for x in operands_str]
+        except ValueError as e:
+            print(f'Invalid number format: {e}')
+            continue
 
-    operands = [float(x) for x in operands]
+        if operator in ['+', '-', '*', '/', '**']:
+            if len(operands) != 2:
+                print(f'Operator "{operator}" requires exactly 2 operands, got {len(operands)}')
+                continue
+            result = basic_operation(operator, *operands)
+        elif operator in ['sin', 'cos', 'tan', 'log', 'ln']:
+            if len(operands) != 1:
+                print(f'Operator "{operator}" requires exactly 1 operand, got {len(operands)}')
+                continue
+            result = scientific_operation(operator, *operands)
+        else:
+            print(f'Invalid operator: {operator}')
+            continue
 
-    if operator in ['+', '-', '*', '/', '**']:
-        result = basic_operation(operator, *operands)
-    elif operator in ['sin', 'cos', 'tan', 'log', 'ln']:
-        result = scientific_operation(operator, *operands)
-    else:
-        print('Invalid operator')
-        continue
-
-    print('Result:', result)
+        print('Result:', result)
+        
+    except ValueError as e:
+        print(f'Error: {e}')
+    except Exception as e:
+        print(f'Unexpected error: {e}')
